@@ -56,49 +56,29 @@ function parsePacket(data) {
 }
 
 function nginxPage() {
-  return `<!doctype html>
-<html lang="en">
+  return `<!DOCTYPE html>
+<html>
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>nginx</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #fff;
-      color: #222;
-    }
-
+<title>Welcome to nginx!</title>
+<style>
     body {
-      padding: 40px;
-      font-family: monospace;
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
     }
-
-    pre {
-      margin: 0;
-      font-size: 14px;
-      line-height: 1.5;
-      white-space: pre-wrap;
-    }
-  </style>
+</style>
 </head>
 <body>
-<pre>nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
-nginx: configuration file /etc/nginx/nginx.conf test is successful
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
 
-server {
-    listen 443 ssl;
-    server_name _;
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
 
-    ssl_protocols TLSv1.2 TLSv1.3;
-
-    location / {
-        try_files $uri $uri/ =404;
-    }
-}
-
-Configuration loaded successfully.</pre>
+<p><em>Thank you for using nginx.</em></p>
 </body>
 </html>`;
 }
