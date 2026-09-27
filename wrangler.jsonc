@@ -1,0 +1,21 @@
+{
+  "name": "interstellar-wisp",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-27",
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WISP",
+        "class_name": "WispServer"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["WispServer"]
+    }
+  ]
+}
