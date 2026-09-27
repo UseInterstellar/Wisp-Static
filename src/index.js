@@ -13,7 +13,6 @@ const CLOSE_VOLUNTARY = 0x02;
 const CLOSE_NETWORK = 0x03;
 const CLOSE_INVALID = 0x41;
 const CLOSE_UNREACHABLE = 0x42;
-const CLOSE_REFUSED = 0x44;
 
 function packet(type, streamId, payload = new Uint8Array()) {
   const out = new Uint8Array(5 + payload.length);
@@ -56,19 +55,74 @@ function parsePacket(data) {
   };
 }
 
-export default {
-  async fetch(request, env) {
-    if (
-      request.method !== "GET" ||
-      request.headers.get("Upgrade")?.toLowerCase() !== "websocket"
-    ) {
-      return new Response("Wisp server", { status: 426 });
+function nginxPage() {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>nginx</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #222;
     }
 
-    const id = env.WISP.idFromName("wisp");
-    const stub = env.WISP.get(id);
+    body {
+      padding: 40px;
+      font-family: monospace;
+    }
 
-    return stub.fetch(request);
+    pre {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+<pre>nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+server {
+    listen 443 ssl;
+    server_name _;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+
+Configuration loaded successfully.</pre>
+</body>
+</html>`;
+}
+
+export default {
+  async fetch(request, env) {
+    const upgrade = request.headers.get("Upgrade");
+
+    // Wisp WebSocket connection
+    if (upgrade?.toLowerCase() === "websocket") {
+      const id = env.WISP.idFromName("wisp");
+      const stub = env.WISP.get(id);
+
+      return stub.fetch(request);
+    }
+
+    // Normal HTTP request
+    return new Response(nginxPage(), {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=UTF-8",
+        "Cache-Control": "no-store",
+      },
+    });
   },
 };
 
@@ -80,14 +134,22 @@ export class WispServer extends DurableObject {
   }
 
   async fetch(request) {
+    const upgrade = request.headers.get("Upgrade");
+
+    if (upgrade?.toLowerCase() !== "websocket") {
+      return new Response("Expected WebSocket", {
+        status: 426,
+        headers: {
+          "Upgrade": "websocket",
+        },
+      });
+    }
+
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
 
-    // Use the normal WebSocket API rather than hibernation.
-    // Active TCP streams need their in-memory socket state.
-    server.accept({ allowHalfOpen: true });
-
+    server.accept();
     server.binaryType = "arraybuffer";
 
     server.addEventListener("message", (event) => {
@@ -108,8 +170,7 @@ export class WispServer extends DurableObject {
       this.closeAllStreams();
     });
 
-    // Wisp v1:
-    // CONTINUE on stream 0 immediately means "use Wisp v1".
+    // Wisp v1 starts with a CONTINUE packet.
     server.send(continuePacket(0, BUFFER_SIZE));
 
     return new Response(null, {
@@ -144,7 +205,6 @@ export class WispServer extends DurableObject {
         break;
 
       default:
-        // Ignore unsupported packet types.
         break;
     }
   }
@@ -160,13 +220,13 @@ export class WispServer extends DurableObject {
       return;
     }
 
-    const streamType = p.payload[0];
-
+    // Wisp stream type:
     // 0x01 = TCP
     // 0x02 = UDP
+    const streamType = p.payload[0];
+
+    // Cloudflare Workers implementation is TCP-only.
     if (streamType !== 0x01) {
-      // Cloudflare Workers doesn't provide the UDP socket API
-      // required for a Wisp UDP stream.
       ws.send(closePacket(p.streamId, CLOSE_INVALID));
       return;
     }
@@ -201,7 +261,11 @@ export class WispServer extends DurableObject {
         port,
       });
     } catch (error) {
-      console.error(`Wisp connect failed: ${hostname}:${port}`, error);
+      console.error(
+        `Wisp connect failed: ${hostname}:${port}`,
+        error
+      );
+
       ws.send(closePacket(p.streamId, CLOSE_UNREACHABLE));
       return;
     }
@@ -217,7 +281,7 @@ export class WispServer extends DurableObject {
 
     this.streams.set(p.streamId, stream);
 
-    // Tell the client it can start sending DATA.
+    // Allow the client to start sending data.
     ws.send(continuePacket(p.streamId, BUFFER_SIZE));
 
     this.readFromSocket(ws, p.streamId, stream).catch((error) => {
@@ -226,7 +290,11 @@ export class WispServer extends DurableObject {
         error
       );
 
-      this.destroyStream(ws, p.streamId, CLOSE_NETWORK);
+      this.destroyStream(
+        ws,
+        p.streamId,
+        CLOSE_NETWORK
+      );
     });
   }
 
@@ -238,26 +306,35 @@ export class WispServer extends DurableObject {
       return;
     }
 
-    // Keep writes ordered.
     stream.writeChain = stream.writeChain
       .then(() => stream.writer.write(p.payload))
       .then(() => {
-        // Give the client another credit after the packet has
-        // been accepted by the TCP socket.
-        if (!stream.closed && ws.readyState === WebSocket.OPEN) {
+        if (
+          !stream.closed &&
+          ws.readyState === WebSocket.OPEN
+        ) {
           ws.send(continuePacket(p.streamId, 1));
         }
       })
       .catch((error) => {
         console.error("Wisp TCP write failed:", error);
-        this.destroyStream(ws, p.streamId, CLOSE_NETWORK);
+
+        this.destroyStream(
+          ws,
+          p.streamId,
+          CLOSE_NETWORK
+        );
       });
 
     await stream.writeChain;
   }
 
   handleClose(p) {
-    this.destroyStream(null, p.streamId, CLOSE_VOLUNTARY);
+    this.destroyStream(
+      null,
+      p.streamId,
+      CLOSE_VOLUNTARY
+    );
   }
 
   async readFromSocket(ws, streamId, stream) {
@@ -268,7 +345,11 @@ export class WispServer extends DurableObject {
         const { value, done } = await reader.read();
 
         if (done) {
-          this.destroyStream(ws, streamId, CLOSE_NETWORK);
+          this.destroyStream(
+            ws,
+            streamId,
+            CLOSE_NETWORK
+          );
           break;
         }
 
@@ -280,7 +361,13 @@ export class WispServer extends DurableObject {
           break;
         }
 
-        ws.send(packet(PACKET_DATA, streamId, value));
+        ws.send(
+          packet(
+            PACKET_DATA,
+            streamId,
+            value
+          )
+        );
       }
     } finally {
       reader.releaseLock();
@@ -305,9 +392,17 @@ export class WispServer extends DurableObject {
       stream.socket.close();
     } catch {}
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (
+      ws &&
+      ws.readyState === WebSocket.OPEN
+    ) {
       try {
-        ws.send(closePacket(streamId, reason));
+        ws.send(
+          closePacket(
+            streamId,
+            reason
+          )
+        );
       } catch {}
     }
   }
