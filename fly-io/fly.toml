@@ -1,0 +1,36 @@
+app = 'wisp'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  PORT = '5001'
+  HOST = '0.0.0.0'
+  LOG_LEVEL = 'INFO'
+
+[http_service]
+  internal_port = 5001
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = 'off'
+  min_machines_running = 1
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'connections'
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
