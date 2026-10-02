@@ -1,0 +1,49 @@
+{
+  "version": "5",
+  "specifiers": {
+    "npm:@mercuryworkshop/wisp-js@0.5.0": "0.5.0"
+  },
+  "npm": {
+    "@mercuryworkshop/wisp-js@0.5.0": {
+      "integrity": "sha512-YIPnONZdMYRXLdttL/zQM2PwjHQw3LfNPWTP54Lqhehs79lcORY8rwv5j7bGnuz9S31rZIh1OEzldubE9dtnoA==",
+      "dependencies": [
+        "bufferutil",
+        "commander",
+        "ipaddr.js",
+        "ws"
+      ],
+      "bin": true
+    },
+    "bufferutil@4.1.0": {
+      "integrity": "sha512-ZMANVnAixE6AWWnPzlW2KpUrxhm9woycYvPOo67jWHyFowASTEd9s+QN1EIMsSDtwhIxN4sWE1jotpuDUIgyIw==",
+      "dependencies": [
+        "node-gyp-build"
+      ],
+      "scripts": true
+    },
+    "commander@15.0.0": {
+      "integrity": "sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg=="
+    },
+    "ipaddr.js@2.5.0": {
+      "integrity": "sha512-aq+t5NAc+cS6rZQQVWC2x98CPqGtKKTMDd4Gaodv0wShnItdKg/51djkGJ1hqH+Oy0ivDftCbSLCQob8zso01w=="
+    },
+    "node-gyp-build@4.8.4": {
+      "integrity": "sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==",
+      "bin": true
+    },
+    "ws@8.22.0_bufferutil@4.1.0": {
+      "integrity": "sha512-Ydggc987+RO0AnWtZ/7Wq9FtNvcrL1b/RO0ud9mWjUPgDrsAAwQSF51sm2hm1XofbU/4jkpGEsLFsZZxU+1DOg==",
+      "dependencies": [
+        "bufferutil"
+      ],
+      "optionalPeers": [
+        "bufferutil"
+      ]
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "npm:@mercuryworkshop/wisp-js@0.5.0"
+    ]
+  }
+}

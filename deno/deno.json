@@ -1,0 +1,16 @@
+{
+  "name": "wisp-deno",
+  "version": "1.0.0",
+  "exports": "./main.ts",
+  "tasks": {
+    "start": "deno run --allow-net --allow-env --allow-sys --allow-read main.ts",
+    "dev": "deno run --watch --allow-net --allow-env --allow-sys --allow-read main.ts",
+    "check": "deno check main.ts"
+  },
+  "imports": {
+    "@mercuryworkshop/wisp-js/server": "npm:@mercuryworkshop/wisp-js@0.5.0/server"
+  },
+  "fmt": {
+    "lineWidth": 80
+  }
+}
