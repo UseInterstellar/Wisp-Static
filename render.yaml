@@ -1,0 +1,15 @@
+services:
+  - name: edu
+    type: web
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: LOG_LEVEL
+        value: INFO
