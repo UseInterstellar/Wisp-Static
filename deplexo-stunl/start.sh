@@ -49,6 +49,23 @@ if [ -z "${STUNL_API_KEY:-}" ]; then
   exit $?
 fi
 
+# stunl derives its config, log and cache paths from $HOME ($HOME/.stunl/...),
+# and has no env var or flag to relocate them. Deplexo mounts the root
+# filesystem read-only, so the default /root/.stunl/logs is unwritable and
+# logging setup fails before the tunnel opens. Point HOME at writable /tmp.
+STUNL_HOME="${STUNL_HOME_DIR:-/tmp/stunl}"
+
+prepare_stunl_home() {
+  mkdir -p "$STUNL_HOME/.stunl/logs" 2>/dev/null
+
+  if [ ! -w "$STUNL_HOME/.stunl/logs" ]; then
+    echo "stunl: ${STUNL_HOME}/.stunl/logs is not writable" >&2
+    return 1
+  fi
+
+  return 0
+}
+
 # stunl's free tier caps a session at 60 minutes, so the tunnel is expected to
 # drop and must be re-established. Backoff is capped so a hard failure (bad key,
 # quota exhausted) doesn't spin.
@@ -61,9 +78,16 @@ supervise_stunl() {
   fi
 
   while true; do
-    echo "stunl: opening tunnel to 127.0.0.1:${PORT}"
+    echo "stunl: opening tunnel to 127.0.0.1:${PORT} (HOME=${STUNL_HOME})"
     local started=$SECONDS
-    stunl "${args[@]}"
+
+    # Re-checked each attempt: /tmp is a tmpfs that may be cleared under us.
+    if prepare_stunl_home; then
+      HOME="$STUNL_HOME" stunl "${args[@]}"
+    else
+      false
+    fi
+
     local code=$?
     local ran=$(( SECONDS - started ))
 
